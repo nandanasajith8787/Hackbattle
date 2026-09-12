@@ -5,8 +5,12 @@ __pycache__/
 
 # Secrets
 .env
-host_key
-host_key.pub
+
+# FIX: main.py writes the key to "ssh_host_key" / "ssh_host_key.pub" — the
+# old entries here said "host_key" / "host_key.pub" and would NOT have
+# matched, so your real SSH private key would get committed.
+ssh_host_key
+ssh_host_key.pub
 
 # Data
 honeypot.db
