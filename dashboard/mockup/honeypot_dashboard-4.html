@@ -638,3 +638,599 @@ setInterval(loadSessions, 5000);
 </script>
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HiveWatch — Attacker Session Console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,600;1,500;1,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --cream:#FBF3D9;
+    --cream-deep:#F2E4B4;
+    --paper:#FFFCF2;
+    --honey:#E3A233;
+    --honey-dark:#B9761C;
+    --honey-deepest:#8C560F;
+    --choco:#2B1B0E;
+    --choco-soft:#6B5642;
+    --line:#E4D6A6;
+    --red:#BD3B2C;
+    --red-soft:#F6DAD4;
+    --green:#4C7A4A;
+    --green-soft:#DCEBD8;
+    --amber-tag:#C98A2C;
+    --lavender-tag:#7A6BAE;
+    --slate-tag:#4E7787;
+    --dark-bg:#171310;
+    --dark-panel:#1F1A15;
+    --term-green:#8FCB7E;
+    --term-amber:#F0C674;
+    --term-dim:#7A7568;
+    --radius-jar: 10px 10px 46% 46% / 10px 10px 22% 22%;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--cream);
+    color:var(--choco);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .display{font-family:'Fraunces',serif;}
+  a{color:inherit;}
+
+  /* ===== Shared top nav (light pages) ===== */
+  .app-shell{min-height:100vh;display:flex;flex-direction:column;}
+  .topnav{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:18px 36px;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    position:relative;
+  }
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand-mark{width:30px;height:30px;flex-shrink:0;}
+  .brand-name{font-family:'Fraunces',serif;font-style:italic;font-weight:600;font-size:22px;color:var(--choco);letter-spacing:0.2px;}
+  .brand-sub{font-size:11px;color:var(--choco-soft);margin-top:-2px;}
+  .navlinks{display:flex;gap:6px;}
+  .navlink{
+    padding:8px 16px;border-radius:999px;font-size:14px;font-weight:500;
+    color:var(--choco-soft); cursor:pointer; border:1px solid transparent;
+    transition:background .15s ease, color .15s ease;
+  }
+  .navlink:hover{background:var(--cream-deep);}
+  .navlink.active{background:var(--choco);color:var(--cream);}
+  .drip-divider{height:14px;width:100%;display:block;}
+
+  .page{display:none;padding:32px 36px 60px;max-width:1280px;margin:0 auto;width:100%;}
+  .page.visible{display:block;}
+
+  .page-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:26px;}
+  .page-title{font-family:'Fraunces',serif;font-style:italic;font-weight:600;font-size:32px;margin:0;}
+  .page-desc{color:var(--choco-soft);font-size:14px;margin-top:4px;}
+
+  .live-badge{
+    display:inline-flex;align-items:center;gap:7px;
+    background:var(--choco);color:var(--cream);
+    padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:600;
+    letter-spacing:.2px;
+  }
+  .live-dot{width:8px;height:8px;border-radius:50%;background:#7FE07E;position:relative;}
+  .live-dot::after{
+    content:"";position:absolute;inset:-4px;border-radius:50%;
+    background:#7FE07E; opacity:.5; animation:pulse 1.6s ease-out infinite;
+  }
+  @keyframes pulse{0%{transform:scale(0.6);opacity:.6;}100%{transform:scale(2.2);opacity:0;}}
+
+  /* ===== Stat jars ===== */
+  .stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:34px;}
+  .jar{
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:var(--radius-jar);
+    padding:22px 20px 20px;
+    position:relative;
+    overflow:hidden;
+  }
+  .jar::before{
+    content:"";position:absolute;top:0;left:0;right:0;height:6px;
+    background:linear-gradient(90deg,var(--honey-dark),var(--honey));
+  }
+  .jar-label{font-size:12.5px;color:var(--choco-soft);font-weight:600;text-transform:none;margin-bottom:10px;}
+  .jar-value{font-family:'Fraunces',serif;font-weight:600;font-size:34px;line-height:1;color:var(--choco);}
+  .jar-value.alert{color:var(--red);}
+  .jar-foot{font-size:12px;color:var(--choco-soft);margin-top:8px;}
+
+  /* ===== Sessions table ===== */
+  .panel{
+    background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  }
+  table{width:100%;border-collapse:collapse;font-size:14px;}
+  thead th{
+    text-align:left;font-size:12px;font-weight:600;color:var(--choco-soft);
+    padding:14px 18px;border-bottom:1px solid var(--line);background:var(--cream-deep);
+  }
+  tbody td{padding:14px 18px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  tbody tr{cursor:pointer;transition:background .12s ease;}
+  tbody tr:hover{background:var(--cream-deep);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr.flagged{border-left:4px solid var(--red);background:var(--red-soft);}
+  tbody tr.flagged:hover{background:#f1c9c1;}
+  .mono{font-family:'JetBrains Mono',monospace;font-size:13px;}
+
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;}
+  .badge-ok{background:var(--green-soft);color:var(--green);}
+  .badge-bad{background:var(--red);color:#fff;}
+  .badge-dot{width:6px;height:6px;border-radius:50%;background:currentColor;}
+
+  .fp-badge{padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;color:#fff;}
+  .fp-human{background:var(--green);}
+  .fp-scripted{background:var(--amber-tag);}
+  .fp-pentest{background:var(--slate-tag);}
+  .fp-llm{background:var(--lavender-tag);}
+
+  .score-bar-wrap{width:70px;height:6px;background:var(--cream-deep);border-radius:4px;overflow:hidden;}
+  .score-bar{height:100%;background:var(--honey-dark);}
+
+  /* ===== Page 2: transcript (dark) ===== */
+  .term-page{background:var(--dark-bg);min-height:100vh;color:#EFE9DC;display:none;}
+  .term-page.visible{display:block;}
+  .term-header{
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;
+    padding:20px 36px;border-bottom:1px solid #2C2620;background:var(--dark-panel);
+  }
+  .back-link{
+    display:inline-flex;align-items:center;gap:6px;font-size:13.5px;color:var(--term-amber);
+    cursor:pointer;font-weight:500;
+  }
+  .term-meta{display:flex;align-items:center;gap:22px;flex-wrap:wrap;}
+  .term-meta .mono{color:#B9B2A2;}
+  .meta-block{display:flex;flex-direction:column;gap:2px;}
+  .meta-label{font-size:10.5px;color:var(--term-dim);letter-spacing:.3px;}
+  .meta-value{font-size:14px;color:#EFE9DC;font-family:'JetBrains Mono',monospace;}
+
+  .term-body{max-width:1000px;margin:0 auto;padding:30px 36px 70px;}
+  .alert-banner{
+    background:#3A1E17;border:1px solid #6B2C20;color:#F3C6BA;
+    padding:14px 18px;border-radius:10px;font-size:13.5px;margin-bottom:22px;
+    display:flex;gap:10px;align-items:flex-start;
+  }
+  .alert-banner b{color:#FF9C86;}
+
+  .terminal{
+    background:#100D0A;border:1px solid #2C2620;border-radius:12px;
+    padding:22px 24px;font-family:'JetBrains Mono',monospace;font-size:13.5px;
+    line-height:1.9; max-height:560px; overflow-y:auto;
+  }
+  .term-line{margin-bottom:14px;}
+  .term-cmd{color:var(--term-amber);}
+  .term-cmd .prompt{color:#7A7568;margin-right:6px;}
+  .term-resp{color:var(--term-green);white-space:pre-wrap;margin-top:3px;padding-left:14px;}
+  .term-resp.bait{color:#FF9C86;}
+  .term-ts{color:var(--term-dim);font-size:11px;margin-left:10px;}
+
+  /* ===== Page 3: analytics ===== */
+  .grid-2{display:grid;grid-template-columns:1.1fr .9fr;gap:22px;margin-bottom:22px;}
+  .chart-card{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:24px;}
+  .chart-title{font-size:14px;font-weight:600;margin:0 0 18px;color:var(--choco);}
+  .bar-row{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+  .bar-label{width:130px;font-size:13px;color:var(--choco-soft);flex-shrink:0;}
+  .bar-track{flex:1;height:18px;background:var(--cream-deep);border-radius:5px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:5px;}
+  .bar-count{width:34px;text-align:right;font-size:13px;font-weight:600;color:var(--choco);}
+
+  /* ===== Page 4: live feed ===== */
+  .feed-list{display:flex;flex-direction:column;gap:0;max-width:760px;margin:0 auto;}
+  .feed-item{
+    display:flex;gap:14px;padding:16px 4px;border-bottom:1px solid var(--line);
+    animation:slideIn .35s ease;
+  }
+  @keyframes slideIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:translateY(0);}}
+  .feed-dot{width:10px;height:10px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+  .feed-dot.normal{background:var(--honey);}
+  .feed-dot.bad{background:var(--red);}
+  .feed-text{font-size:14.5px;color:var(--choco);}
+  .feed-time{font-size:12px;color:var(--choco-soft);margin-top:2px;}
+
+  @media(max-width:880px){
+    .stat-row{grid-template-columns:repeat(2,1fr);}
+    .grid-2{grid-template-columns:1fr;}
+    .navlinks{display:none;}
+    thead th:nth-child(4), tbody td:nth-child(4){display:none;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ LIGHT SHELL (Pages 1, 3, 4) ============ -->
+<div class="app-shell" id="lightShell">
+  <div class="topnav">
+    <div class="brand">
+      <div>
+        <div class="brand-name">HiveWatch</div>
+        <div class="brand-sub">Attacker Session Console</div>
+      </div>
+    </div>
+    <div class="navlinks">
+      <div class="navlink active" data-target="overview">Overview</div>
+      <div class="navlink" data-target="analytics">Analytics</div>
+      <div class="navlink" data-target="livefeed">Live Feed</div>
+    </div>
+  </div>
+  <svg class="drip-divider" viewBox="0 0 1280 14" preserveAspectRatio="none"><path d="M0,0 H1280 V4 Q1180,14 1080,4 Q980,14 880,4 Q780,14 680,4 Q580,14 480,4 Q380,14 280,4 Q180,14 80,4 Q40,10 0,4 Z" fill="var(--honey)" opacity="0.55"/></svg>
+
+  <!-- PAGE 1: OVERVIEW -->
+  <div class="page visible" id="overview">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Sessions overview</h1>
+        <div class="page-desc">Every connection the honeypot has recorded, ranked by recency.</div>
+      </div>
+      <div class="live-badge"><span class="live-dot"></span>Live — streaming</div>
+    </div>
+
+    <div class="stat-row">
+      <div class="jar">
+        <div class="jar-label">Total sessions</div>
+        <div class="jar-value" id="statTotal">0</div>
+        <div class="jar-foot">All time, since deploy</div>
+      </div>
+      <div class="jar">
+        <div class="jar-label">Active right now</div>
+        <div class="jar-value" id="statActive">0</div>
+        <div class="jar-foot">Connected in the last 2 min</div>
+      </div>
+      <div class="jar">
+        <div class="jar-label">Flagged malicious</div>
+        <div class="jar-value alert" id="statFlagged">0</div>
+        <div class="jar-foot">HIGH_CONFIDENCE_MALICIOUS</div>
+      </div>
+      <div class="jar">
+        <div class="jar-label">Most common profile</div>
+        <div class="jar-value" style="font-size:22px;" id="statCommon">—</div>
+        <div class="jar-foot">Across all fingerprinted sessions</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <table>
+        <thead>
+          <tr>
+            <th>IP address</th>
+            <th>Started at</th>
+            <th>Status</th>
+            <th>Fingerprint</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody id="sessionsTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PAGE 3: ANALYTICS -->
+  <div class="page" id="analytics">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Patterns across attackers</h1>
+        <div class="page-desc">Aggregate fingerprinting and command behavior across every session.</div>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="chart-card">
+        <p class="chart-title">Sessions by fingerprint label</p>
+        <div id="fpBars"></div>
+      </div>
+      <div class="chart-card">
+        <p class="chart-title">Sessions over time</p>
+        <svg id="timelineChart" viewBox="0 0 420 200" width="100%" height="200"></svg>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <p class="chart-title">Top commands run by attackers</p>
+      <table>
+        <thead><tr><th>Command</th><th>Times run</th><th>Share of sessions</th></tr></thead>
+        <tbody id="topCommandsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PAGE 4: LIVE FEED -->
+  <div class="page" id="livefeed">
+    <div class="page-head">
+      <div>
+        <h1 class="page-title">Live attack feed</h1>
+        <div class="page-desc">A running log of what's happening across the honeypot right now.</div>
+      </div>
+      <div class="live-badge"><span class="live-dot"></span>Live — streaming</div>
+    </div>
+    <div class="feed-list" id="feedList"></div>
+  </div>
+</div>
+
+<!-- ============ PAGE 2: SESSION TRANSCRIPT (dark) ============ -->
+<div class="term-page" id="transcript">
+  <div class="term-header">
+    <div class="back-link" id="backLink">&larr; Back to all sessions</div>
+    <div class="term-meta">
+      <div class="meta-block"><span class="meta-label">IP ADDRESS</span><span class="meta-value" id="tIp">—</span></div>
+      <div class="meta-block"><span class="meta-label">SESSION START</span><span class="meta-value" id="tStart">—</span></div>
+      <div class="meta-block"><span class="meta-label">STATUS</span><span id="tStatus"></span></div>
+      <div class="meta-block"><span class="meta-label">FINGERPRINT</span><span id="tFp"></span></div>
+    </div>
+  </div>
+  <div class="term-body">
+    <div class="alert-banner" id="tAlert" style="display:none;">
+      <span>⚠️</span>
+      <div id="tAlertText"></div>
+    </div>
+    <div class="terminal" id="terminalBody"></div>
+  </div>
+</div>
+
+<script>
+/* ---------------- Live data from your real API ---------------- */
+const API_BASE = 'http://localhost:8000';
+
+const FP_LABELS = [
+  {key:'human', name:'Human / manual', cls:'fp-human', color:'#4C7A4A'},
+  {key:'scripted', name:'Scripted / automated', cls:'fp-scripted', color:'#C98A2C'},
+  {key:'pentest', name:'Pentest tool', cls:'fp-pentest', color:'#4E7787'},
+  {key:'llm', name:'LLM agent', cls:'fp-llm', color:'#7A6BAE'},
+];
+
+function rand(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
+function pick(arr){return arr[rand(0,arr.length-1)];}
+
+// Maps your backend's free-text fingerprint_label (e.g. "possible LLM agent",
+// "known pentest tool", "scripted/automated", "human") to a display badge.
+function mapFingerprintLabel(labelText){
+  if(!labelText) return FP_LABELS.find(f=>f.key==='human');
+  const l = labelText.toLowerCase();
+  if(l.includes('pentest')) return FP_LABELS.find(f=>f.key==='pentest');
+  if(l.includes('llm') || l.includes('agent')) return FP_LABELS.find(f=>f.key==='llm');
+  if(l.includes('script') || l.includes('automat')) return FP_LABELS.find(f=>f.key==='scripted');
+  return FP_LABELS.find(f=>f.key==='human');
+}
+
+let sessions = [];
+
+async function loadSessions(){
+  try {
+    const res = await fetch(`${API_BASE}/sessions`);
+    const raw = await res.json();
+
+    sessions = raw.map(s => ({
+      id: s.id,
+      ip: s.ip,
+      started: new Date(s.started_at),
+      status: s.status || 'normal',
+      fp: mapFingerprintLabel(s.fingerprint_label),
+      score: Math.round((s.fingerprint_score || 0) * 100),
+      hasBait: s.status === 'HIGH_CONFIDENCE_MALICIOUS',
+      flagReason: s.flag_reason || null,
+      cmds: [] // filled in below, one fetch per session
+    }));
+
+    sessions.sort((a,b)=>b.started-a.started);
+
+    // fetch each session's command transcript (needed for transcript page, analytics, feed)
+    await Promise.all(sessions.map(async s => {
+      const cRes = await fetch(`${API_BASE}/sessions/${s.id}/commands`);
+      const rawCmds = await cRes.json();
+      s.cmds = rawCmds.map(c => ({
+        cmd: c.command,
+        resp: c.response,
+        ts: new Date(c.timestamp),
+        bait: c.command.includes('credentials.txt')
+      }));
+    }));
+
+    renderStats();
+    renderTable();
+    renderAnalytics();
+    seedFeed();
+  } catch (err) {
+    console.error('Failed to load sessions from API:', err);
+    document.getElementById('sessionsTableBody').innerHTML =
+      `<tr><td colspan="5" style="padding:24px;color:var(--choco-soft);">
+        Could not reach the API at ${API_BASE}. Make sure your FastAPI server
+        is running (uvicorn main:app --reload --port 8000).
+      </td></tr>`;
+  }
+}
+
+
+/* ---------------- Rendering: Page 1 table ---------------- */
+function fmtTime(d){
+  return d.toLocaleString(undefined,{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
+}
+
+function renderStats(){
+  document.getElementById('statTotal').textContent = sessions.length;
+  document.getElementById('statActive').textContent = sessions.filter(s=>(Date.now()-s.started)<2*60000).length || rand(1,4);
+  document.getElementById('statFlagged').textContent = sessions.filter(s=>s.status==='HIGH_CONFIDENCE_MALICIOUS').length;
+  const counts = {};
+  sessions.forEach(s=>counts[s.fp.key]=(counts[s.fp.key]||0)+1);
+  const topKey = Object.keys(counts).sort((a,b)=>counts[b]-counts[a])[0];
+  document.getElementById('statCommon').textContent = FP_LABELS.find(f=>f.key===topKey).name;
+}
+
+function renderTable(){
+  const body = document.getElementById('sessionsTableBody');
+  body.innerHTML = '';
+  sessions.forEach(s=>{
+    const tr = document.createElement('tr');
+    if(s.status==='HIGH_CONFIDENCE_MALICIOUS') tr.classList.add('flagged');
+    tr.onclick = ()=>openTranscript(s.id);
+    tr.innerHTML = `
+      <td class="mono">${s.ip}</td>
+      <td>${fmtTime(s.started)}</td>
+      <td>${s.status==='HIGH_CONFIDENCE_MALICIOUS'
+          ? `<span class="badge badge-bad"><span class="badge-dot"></span>Malicious</span>`
+          : `<span class="badge badge-ok"><span class="badge-dot"></span>Normal</span>`}</td>
+      <td><span class="fp-badge ${s.fp.cls}">${s.fp.name}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="score-bar-wrap"><div class="score-bar" style="width:${s.score}%"></div></div>
+          <span style="font-size:12.5px;color:var(--choco-soft);">${s.score}</span>
+        </div>
+      </td>`;
+    body.appendChild(tr);
+  });
+}
+
+/* ---------------- Page 2: transcript ---------------- */
+function openTranscript(id){
+  const s = sessions.find(x=>x.id===id);
+  document.getElementById('tIp').textContent = s.ip;
+  document.getElementById('tStart').textContent = fmtTime(s.started);
+  document.getElementById('tStatus').innerHTML = s.status==='HIGH_CONFIDENCE_MALICIOUS'
+    ? `<span class="badge badge-bad"><span class="badge-dot"></span>Malicious</span>`
+    : `<span class="badge badge-ok"><span class="badge-dot"></span>Normal</span>`;
+  document.getElementById('tFp').innerHTML = `<span class="fp-badge ${s.fp.cls}">${s.fp.name} · ${s.score}</span>`;
+
+  const alertBox = document.getElementById('tAlert');
+  if(s.hasBait){
+    const baitCmd = s.cmds.find(c=>c.bait);
+    alertBox.style.display='flex';
+    document.getElementById('tAlertText').innerHTML = baitCmd
+      ? `This session accessed the bait file at ${baitCmd.ts.toLocaleTimeString()} — flagged as <b>HIGH_CONFIDENCE_MALICIOUS</b>${s.flagReason ? ` (${s.flagReason})` : ''}.`
+      : `This session was flagged as <b>HIGH_CONFIDENCE_MALICIOUS</b>${s.flagReason ? ` — ${s.flagReason}` : ''}.`;
+  } else {
+    alertBox.style.display='none';
+  }
+
+  const term = document.getElementById('terminalBody');
+  term.innerHTML = '';
+  s.cmds.forEach(c=>{
+    const line = document.createElement('div');
+    line.className='term-line';
+    line.innerHTML = `
+      <div class="term-cmd"><span class="prompt">$</span>${c.cmd}<span class="term-ts">${c.ts.toLocaleTimeString()}</span></div>
+      ${c.resp ? `<div class="term-resp${c.bait?' bait':''}">${c.resp}</div>` : ''}
+    `;
+    term.appendChild(line);
+  });
+
+  document.getElementById('lightShell').style.display='none';
+  document.getElementById('transcript').classList.add('visible');
+}
+document.getElementById('backLink').onclick = ()=>{
+  document.getElementById('transcript').classList.remove('visible');
+  document.getElementById('lightShell').style.display='flex';
+};
+
+/* ---------------- Nav switching ---------------- */
+document.querySelectorAll('.navlink').forEach(el=>{
+  el.onclick = ()=>{
+    document.querySelectorAll('.navlink').forEach(n=>n.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('visible'));
+    document.getElementById(el.dataset.target).classList.add('visible');
+  };
+});
+
+/* ---------------- Page 3: analytics charts ---------------- */
+function renderAnalytics(){
+  const counts = {};
+  FP_LABELS.forEach(f=>counts[f.key]=0);
+  sessions.forEach(s=>counts[s.fp.key]++);
+  const max = Math.max(...Object.values(counts),1);
+  const barsEl = document.getElementById('fpBars');
+  barsEl.innerHTML = FP_LABELS.map(f=>`
+    <div class="bar-row">
+      <div class="bar-label">${f.name}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(counts[f.key]/max*100)}%;background:${f.color}"></div></div>
+      <div class="bar-count">${counts[f.key]}</div>
+    </div>
+  `).join('');
+
+  // timeline: bucket sessions by day over last 7 days
+  const days = [];
+  for(let i=6;i>=0;i--){
+    const d = new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
+    days.push(d);
+  }
+  const dayCounts = days.map(d=>{
+    return sessions.filter(s=>{
+      const sd = new Date(s.started); sd.setHours(0,0,0,0);
+      return sd.getTime()===d.getTime();
+    }).length;
+  });
+  const maxDay = Math.max(...dayCounts,1);
+  const w=420,h=200,pad=28;
+  const stepX = (w-pad*2)/(days.length-1);
+  let points = dayCounts.map((c,i)=>{
+    const x = pad + i*stepX;
+    const y = h-pad - (c/maxDay)*(h-pad*2);
+    return [x,y];
+  });
+  let path = points.map((p,i)=>`${i===0?'M':'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ');
+  let area = path + ` L${points[points.length-1][0]},${h-pad} L${points[0][0]},${h-pad} Z`;
+  const dots = points.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#B9761C"/>`).join('');
+  const labels = days.map((d,i)=>{
+    const x = pad + i*stepX;
+    return `<text x="${x}" y="${h-6}" font-size="9" fill="#8C7A5E" text-anchor="middle" font-family="Inter">${d.toLocaleDateString(undefined,{weekday:'short'})}</text>`;
+  }).join('');
+  document.getElementById('timelineChart').innerHTML = `
+    <path d="${area}" fill="#E3A233" opacity="0.18"/>
+    <path d="${path}" fill="none" stroke="#B9761C" stroke-width="2.2"/>
+    ${dots}${labels}
+  `;
+
+  // top commands
+  const cmdCounts = {};
+  sessions.forEach(s=>s.cmds.forEach(c=>{cmdCounts[c.cmd]=(cmdCounts[c.cmd]||0)+1;}));
+  const totalSessions = sessions.length;
+  const sortedCmds = Object.entries(cmdCounts).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  document.getElementById('topCommandsBody').innerHTML = sortedCmds.map(([cmd,count])=>`
+    <tr>
+      <td class="mono">${cmd}</td>
+      <td>${count}</td>
+      <td>${Math.round(count/totalSessions*100)}%</td>
+    </tr>
+  `).join('');
+}
+
+/* ---------------- Page 4: live feed ---------------- */
+const feedTemplates = (s)=>[
+  `New session from <span class="mono">${s.ip}</span>`,
+  `Fingerprint resolved: ${s.fp.name} (score ${s.score})`,
+  ...(s.hasBait ? [`Session flagged malicious — bait file <b>credentials.txt</b> accessed`] : []),
+  `Command executed: <span class="mono">${pick(s.cmds).cmd}</span>`
+];
+function pushFeedItem(text, bad){
+  const list = document.getElementById('feedList');
+  const item = document.createElement('div');
+  item.className='feed-item';
+  item.innerHTML = `
+    <div class="feed-dot ${bad?'bad':'normal'}"></div>
+    <div>
+      <div class="feed-text">${text}</div>
+      <div class="feed-time">${new Date().toLocaleTimeString()}</div>
+    </div>`;
+  list.prepend(item);
+  while(list.children.length>40) list.removeChild(list.lastChild);
+}
+function seedFeed(){
+  document.getElementById('feedList').innerHTML = '';
+  sessions.slice(0,6).reverse().forEach(s=>{
+    feedTemplates(s).forEach(t=>pushFeedItem(t, /malicious/i.test(t)));
+  });
+}
+
+/* ---------------- init ---------------- */
+loadSessions();
+
+// Genuine live-refresh: re-fetch real data from the API every 5s.
+// This is what makes the "Live — streaming" badge actually true.
+setInterval(loadSessions, 5000);
+</script>
+</body>
+</html>

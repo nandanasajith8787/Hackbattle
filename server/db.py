@@ -1,7 +1,8 @@
 import aiosqlite
 import uuid
-import os
 from datetime import datetime, timezone
+
+
 
 # FIX: was "../honeypot.db" — resolved relative to whatever directory the
 # process happened to be launched FROM, not relative to this file. That broke
