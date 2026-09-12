@@ -1,0 +1,18 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Secrets
+.env
+host_key
+host_key.pub
+
+# Data
+honeypot.db
+
+# OS
+.DS_Store
+
+# Node
+dashboard/node_modules/
