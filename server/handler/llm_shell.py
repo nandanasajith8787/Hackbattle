@@ -24,43 +24,64 @@ drwxr-xr-x 4 root  root  4096 Jun 10 18:02 ..
 Always output a FULL, complete listing like this example — one line per file/directory, never truncate.
 """
 
-def get_shell_response(command: str, fs_state: dict, history: list) -> str:
+async def get_shell_response(command: str, fs_state: dict, history: list) -> str:
     cwd = fs_state.get("cwd", "/home/admin")
     files = fs_state.get("files", [])
+    contents = fs_state.get("contents", {})
 
     context = (
         f"Current Directory: {cwd}\n"
         f"Files that exist in this directory (use these EXACT names, nothing else): {files}\n"
-        f"Recent Commands: {history[-5:]}"
+        f"File contents (if relevant to the command): {contents}\n"
+        f"Recent Commands/Responses: {history[-5:]}"
     )
     user_message = f"Context:\n{context}\n\nCommand: {command}"
 
     try:
-        response = client.models.generate_content(
+        response = await client.aio.models.generate_content(
             model="gemini-3.6-flash",
             contents=user_message,
             config={
                 "system_instruction": SYSTEM_PROMPT,
-                "max_output_tokens": 1024,
+                "max_output_tokens": 2048,
+               
             }
         )
-        return response.text.strip()
+
+        text = None
+        if response.candidates:
+            parts = response.candidates[0].content.parts
+            if parts:
+                text = "".join(p.text for p in parts if getattr(p, "text", None))
+
+        if not text:
+            reason = response.candidates[0].finish_reason if response.candidates else None
+            print(f"[llm_shell warning] Empty response from Gemini (finish_reason={reason})")
+            return f"bash: {command}: command not found"
+
+        return text.strip()
     except Exception as e:
         print(f"[llm_shell error] {e}")
         return f"bash: {command}: command not found"
 
+
 if __name__ == "__main__":
-    test_fs = {"cwd": "/home/admin", "files": ["backup.sql", "notes.txt"]}
-    test_history = ["whoami", "pwd"]
+    import asyncio
 
-    print("--- Test 1: cat notes.txt ---")
-    print(get_shell_response("cat notes.txt", test_fs, test_history))
+    async def _test():
+        test_fs = {"cwd": "/home/admin", "files": ["backup.sql", "notes.txt"], "contents": {}}
+        test_history = ["whoami", "pwd"]
 
-    print("\n--- Test 2: ls -la ---")
-    print(get_shell_response("ls -la", test_fs, test_history))
+        print("--- Test 1: cat notes.txt ---")
+        print(await get_shell_response("cat notes.txt", test_fs, test_history))
 
-    print("\n--- Test 3: pwd ---")
-    print(get_shell_response("pwd", test_fs, test_history))
+        print("\n--- Test 2: ls -la ---")
+        print(await get_shell_response("ls -la", test_fs, test_history))
 
-    print("\n--- Test 4: unknown command ---")
-    print(get_shell_response("frobnicate --wizard", test_fs, test_history))
+        print("\n--- Test 3: pwd ---")
+        print(await get_shell_response("pwd", test_fs, test_history))
+
+        print("\n--- Test 4: unknown command ---")
+        print(await get_shell_response("frobnicate --wizard", test_fs, test_history))
+
+    asyncio.run(_test())
